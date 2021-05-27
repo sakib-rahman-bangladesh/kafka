@@ -324,14 +324,14 @@ class Log(@volatile private var _dir: File,
     // write to the partition metadata file.
     // Ensure we do not try to assign a provided topicId that is inconsistent with the ID on file.
     if (partitionMetadataFile.exists()) {
-        if (!keepPartitionMetadataFile)
-          partitionMetadataFile.delete()
-        else {
+        if (keepPartitionMetadataFile) {
           val fileTopicId = partitionMetadataFile.read().topicId
           if (topicId.isDefined && !topicId.contains(fileTopicId))
             throw new InconsistentTopicIdException(s"Tried to assign topic ID $topicId to log for topic partition $topicPartition," +
               s"but log already contained topic ID $fileTopicId")
           topicId = Some(fileTopicId)
+        } else {
+          partitionMetadataFile.delete()
         }
     } else if (keepPartitionMetadataFile) {
       topicId.foreach(partitionMetadataFile.write)
@@ -2011,7 +2011,7 @@ object Log extends Logging {
       logDirFailureChannel,
       config.messageFormatVersion.recordVersion,
       s"[Log partition=$topicPartition, dir=${dir.getParent}] ")
-    val producerStateManager = new ProducerStateManager(topicPartition, dir, maxProducerIdExpirationMs)
+    val producerStateManager = new ProducerStateManager(topicPartition, dir, maxProducerIdExpirationMs, time)
     val offsets = LogLoader.load(LoadLogParams(
       dir,
       topicPartition,
